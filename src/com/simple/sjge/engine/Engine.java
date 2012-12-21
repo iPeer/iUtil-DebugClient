@@ -71,6 +71,8 @@ public class Engine extends Canvas implements Runnable {
 	
 	public static long tickTime, renderTime, totalTime;
 	
+	private boolean graphicsInitialized = false;
+	
 	public Client client;
 
 	public Engine() {
@@ -169,10 +171,9 @@ public class Engine extends Canvas implements Runnable {
 //			pendingGui = "";
 //		}
 		client = new Client(this);
-		client.start();
-		setGui(new GuiClient(this, client));
 	}
 
+	@SuppressWarnings("unused")
 	private void setGui(String gui1) {
 		Gui newGui;
 		try {
@@ -277,6 +278,10 @@ public class Engine extends Canvas implements Runnable {
 		}
 
 		g = (Graphics2D)bs.getDrawGraphics();
+		if (!graphicsInitialized) {
+			graphicsInitialized = true;
+			onGraphicsCreation();
+		}
 
 		// Game rendering
 
@@ -297,6 +302,11 @@ public class Engine extends Canvas implements Runnable {
 		g.dispose();
 		bs.show();
 		renderTime = System.currentTimeMillis() - render;
+	}
+
+	private void onGraphicsCreation() {
+		setGui(new GuiClient(this, client));
+		client.start();
 	}
 
 	public void drawDebug(Graphics2D g) { // [Roxy] Draws debug output to the game screen

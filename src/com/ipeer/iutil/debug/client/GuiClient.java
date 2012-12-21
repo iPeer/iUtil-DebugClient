@@ -1,8 +1,10 @@
 package com.ipeer.iutil.debug.client;
 
+import java.awt.FontMetrics;
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import com.simple.sjge.engine.Engine;
 import com.simple.sjge.engine.Keyboard;
@@ -22,9 +24,9 @@ public class GuiClient extends Gui {
 	private static int listPos = 0;
 	public int historyOffset = 0;
 	GuiTextField consoleInput;
-	
+
 	private Client client;
-	
+
 
 	@SuppressWarnings("unchecked")
 	public GuiClient(Engine engine, Client client) {
@@ -98,9 +100,16 @@ public class GuiClient extends Gui {
 			commandHistory.add(getText());
 			if (isCommand(getText())) {
 				processCommand(getText());
+				setText("", true);
 			}
 			else {
 				addTextToHistory("\247a > "+getText());
+				if (getText().equals("TESTSTRING")) {
+					GuiClient gui = (GuiClient)engine.getGui();
+					gui.addTextToHistory("Really long string that will hopefully \247cgo off the screen allowing me to wrap it on to a new line because I am awesome and I can code like a pro. \247zMaybe the line needs to be longer \247cbecause apparently \247wthat last sentence isn't long enough to make it \247zoverflow \247t\247uoff the screen thus not allowing me to test if it wraps.\247z");
+					setText("", true);
+					return;
+				}
 				client.sendToServer(getText());
 			}
 			setText("", true);
@@ -123,7 +132,7 @@ public class GuiClient extends Gui {
 	private void setText(String s, boolean flag) {
 		consoleInput.setText(s, flag);
 	}
-	
+
 	public void mouseWheelScrolled(int i) {
 		historyOffset += i;
 	}
@@ -135,23 +144,45 @@ public class GuiClient extends Gui {
 	public boolean pausesGame() {
 		return true;
 	}
-	
+
 	public void setConsole(Console c) {
 		this.console = c;
 	}
-	
+
 	public void addTextToHistory(String t) {
-		messageHistory.add(new ConsoleMessage(t));
+		List<String> wrap = wrapLine(t);
+		for (String t1 : wrap)
+			messageHistory.add(new ConsoleMessage(t1));
 		historyOffset = messageHistory.size();
 	}
-	
+
+	public List<String> wrapLine(String t) { // To the nearest space text wrapping
+		List<String> a = new ArrayList<String>();
+
+		FontMetrics f = Engine.getGraphicsInstance().getFontMetrics();
+
+		int index = 0;
+		String[] data = t.split(" ");
+		String o = "";
+		for (String s : data) {
+			o = o+(o.length() > 0 ? " " : "")+s;
+			int l = f.stringWidth((o+(index < data.length - 1 ? data[index + 1] : "")).replaceAll("\247[0123456789abcdeftuvwxyz]", ""));
+			if (l >= engine.getWidth() - 5 || index >= data.length - 1) {
+				a.add(o);
+				o = "";
+			}
+			index++;
+		}		
+		return a;
+	}
+
 	private void processCommand(String text) {
 		String[] d = text.split(" ");
 		String c = d[0].replaceFirst("/", "");
 		String p = "";
 		for (int x = 1; x < d.length; x++)
 			p = p+(p.length() > 1 ? " " : "")+d[x];
-		
+
 		if (c.equalsIgnoreCase("colours")) {
 			String codes = "0123456789abcdeftuvwxyz";
 			addTextToHistory("Colours:");
@@ -178,18 +209,34 @@ public class GuiClient extends Gui {
 			if (data.length == 0 || p.length() == 0) {
 				addTextToHistory("\247cYou must specify a server to connect to!");
 				addTextToHistory("\247c/connect \247vserver:port\247z \247cOR /connect \247vserver\247z\247c[ \247vport\247z\247c]");
+				addTextToHistory("\247cIf a port is not specified the default (4444) will be used.");
 				return;
 			}
 			else {
-				addTextToHistory(c);
-				for (String b : data)
-					addTextToHistory(b);
+				if (client.isConnected()) {
+					disconnectFromServer();
+				}
+				Client a = null;
+				if (p.contains(":"))
+					data = p.split(":");
+				try {
+					a = new Client(data[0], Integer.valueOf(data[1]));
+				}
+				catch (ArrayIndexOutOfBoundsException e) {
+					a = new Client(data[0], 4444);
+				}
+				client = a;
+				client.start();
 			}
 		}
 		else if (c.equalsIgnoreCase("exit")) {
-			client.sendToServer("DISCONNECT");
 			System.exit(0);
 		}
+	}
+	
+	public void disconnectFromServer() {
+		addTextToHistory("Disconnected.");
+		client.sendToServer("DISCONNECT");
 	}
 
 }
